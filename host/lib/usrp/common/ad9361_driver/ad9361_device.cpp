@@ -2983,4 +2983,114 @@ void ad9361_device_t::_set_filter_lp_tia_sec(
     }
 }
 
+/* AD9361 Fastlock
+ *
+ * This is designed to mirror the Analog Devices fastlocking functionality in
+ * their iio driver. For reference, see
+ * https://github.com/analogdevicesinc/linux/blob/76ae5148134e6195e96b98b9e1a406cfcf6eeb57/drivers/iio/adc/ad9361.c
+ * 
+ */
+
+constexpr size_t RX_FASTLOCK_CONFIG_WORD_NUM = 16; // TODO
+constexpr size_t FASTLOCK_BASE_ADDDR = 0x1000; //TODO
+constexpr size_t FASTLOCK_REG_WIDTH = 8; //TODO
+constexpr size_t FASTLOCK_TX_REG_OFFSET = 0x0100; //TODO
+
+void ad9361_device_t::fastlock_poke8(uint32_t addr, uint8_t val) {
+    _io_iface->poke8(addr, val);
+}
+
+uint8_t ad9361_device_t::fastlock_peek8(uint32_t addr) {
+    _io_iface->peek8(addr);
+}
+
+// ad9361_device_t::_fastlock_prepare(struct ad9361_rf_phy *phy, bool tx,
+// 				  u32 profile, bool prepare)
+// ad9361_device_t::_fastlock_recall(struct ad9361_rf_phy *phy, bool tx,
+// 				  u32 profile, bool prepare)
+
+// Retrieve a stored fastlock profile from the chip
+void ad9361_device_t::_fastlock_save(bool tx, size_t profile, ad9361_fastlock_profile* val) {
+    uint32_t base_addr = FASTLOCK_BASE_ADDDR + (tx ? 0 : FASTLOCK_TX_REG_OFFSET); // TODO TX/RX addrs??
+    for (size_t ii = 0; ii < RX_FASTLOCK_CONFIG_WORD_NUM; ++ii) {
+        val->values[ii] = _io_iface->peek8(FASTLOCK_BASE_ADDDR + ii * FASTLOCK_REG_WIDTH);
+    }
+}
+
+// Load a profile into the chip
+void ad9361_device_t::_fastlock_load(const bool tx, const size_t profile, const ad9361_fastlock_profile& val) {
+    uint32_t base_addr = FASTLOCK_BASE_ADDDR + (tx ? 0 : FASTLOCK_TX_REG_OFFSET); // TODO TX/RX addrs??
+    for (size_t ii = 0; ii < RX_FASTLOCK_CONFIG_WORD_NUM; ++ii) {
+        fastlock_poke8(base_addr + ii * FASTLOCK_REG_WIDTH, val.values[ii]);
+    }
+}
+
+// Stores the current configuration to `profile`
+void ad9361_device_t::_fastlock_store(const bool tx, const size_t profile) {
+    /* FROM driver
+    val[0] = ad9361_spi_read(spi, REG_RX_INTEGER_BYTE_0 + offs);
+	val[1] = ad9361_spi_read(spi, REG_RX_INTEGER_BYTE_1 + offs);
+	val[2] = ad9361_spi_read(spi, REG_RX_FRACT_BYTE_0 + offs);
+	val[3] = ad9361_spi_read(spi, REG_RX_FRACT_BYTE_1 + offs);
+	val[4] = ad9361_spi_read(spi, REG_RX_FRACT_BYTE_2 + offs);
+
+	x = ad9361_spi_readf(spi, REG_RX_VCO_BIAS_1 + offs, VCO_BIAS_REF(~0));
+	y = ad9361_spi_readf(spi, REG_RX_ALC_VARACTOR + offs, VCO_VARACTOR(~0));
+	val[5] = (x << 4) | y;
+
+	x = ad9361_spi_readf(spi, REG_RX_VCO_BIAS_1 + offs, VCO_BIAS_TCF(~0));
+	y = ad9361_spi_readf(spi, REG_RX_CP_CURRENT + offs, CHARGE_PUMP_CURRENT(~0));
+	// Wide BW option: N = 1
+	// Set init and steady state values to the same - let user space handle it
+	val[6] = (x << 3) | y;
+	val[7] = y;
+
+	x = ad9361_spi_readf(spi, REG_RX_LOOP_FILTER_3 + offs, LOOP_FILTER_R3(~0));
+	val[8] = (x << 4) | x;
+
+	x = ad9361_spi_readf(spi, REG_RX_LOOP_FILTER_2 + offs, LOOP_FILTER_C3(~0));
+	val[9] = (x << 4) | x;
+
+	x = ad9361_spi_readf(spi, REG_RX_LOOP_FILTER_1 + offs, LOOP_FILTER_C1(~0));
+	y = ad9361_spi_readf(spi, REG_RX_LOOP_FILTER_1 + offs, LOOP_FILTER_C2(~0));
+	val[10] = (x << 4) | y;
+
+	x = ad9361_spi_readf(spi, REG_RX_LOOP_FILTER_2 + offs, LOOP_FILTER_R1(~0));
+	val[11] = (x << 4) | x;
+
+	x = ad9361_spi_readf(spi, REG_RX_VCO_VARACTOR_CTRL_0 + offs,
+			     VCO_VARACTOR_REFERENCE_TCF(~0));
+	y = ad9361_spi_readf(spi, REG_RFPLL_DIVIDERS,
+			     tx ? TX_VCO_DIVIDER(~0) : RX_VCO_DIVIDER(~0));
+	val[12] = (x << 4) | y;
+
+	x = ad9361_spi_readf(spi, REG_RX_FORCE_VCO_TUNE_1 + offs, VCO_CAL_OFFSET(~0));
+	y = ad9361_spi_readf(spi, REG_RX_VCO_VARACTOR_CTRL_1 + offs, VCO_VARACTOR_REFERENCE(~0));
+	val[13] = (x << 4) | y;
+
+	val[14] = ad9361_spi_read(spi, REG_RX_FORCE_VCO_TUNE_0 + offs);
+
+	x = ad9361_spi_readf(spi, REG_RX_FORCE_ALC + offs, FORCE_ALC_WORD(~0));
+	y = ad9361_spi_readf(spi, REG_RX_FORCE_VCO_TUNE_1 + offs, FORCE_VCO_TUNE);
+	val[15] = (x << 1) | y;
+    */
+   ad9361_fastlock_profile val;
+   //TODO: fill val
+
+   // Then just load it!
+   _fastlock_load(tx, profile, val)
+}
+
+// Load a profile that's already stored on the chip
+void ad9361_device_t::_fastlock_recall(const bool tx, const size_t profile) {
+    // TODO prepare??
+    /* TODO
+    return ad9361_spi_write(phy->spi, REG_RX_FAST_LOCK_SETUP + offs,
+			 RX_FAST_LOCK_PROFILE(profile) |
+			 (phy->pdata->trx_fastlock_pinctrl_en[tx] ?
+			 RX_FAST_LOCK_PROFILE_PIN_SELECT : 0) |
+			 RX_FAST_LOCK_MODE_ENABLE);
+     */
+}
+    
 }} // namespace uhd::usrp

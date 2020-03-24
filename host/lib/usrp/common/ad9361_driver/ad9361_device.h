@@ -19,6 +19,10 @@
 #include <functional>
 #include <mutex>
 
+struct ad9361_fastlock_profile {
+    uint8_t values[16];
+};
+
 namespace uhd { namespace usrp {
 
 class ad9361_device_t : public uhd::noncopyable
@@ -304,6 +308,13 @@ private:    //Methods
     void _set_filter_fir(direction_t direction, chain_t channel, filter_info_base::sptr filter);
     void _set_filter_lp_bb(direction_t direction, filter_info_base::sptr filter);
     void _set_filter_lp_tia_sec(direction_t direction, filter_info_base::sptr filter);
+    // Fast lock
+    void fastlock_poke8(uint32_t addr, uint8_t val);
+    uint8_t fastlock_peek8(uint32_t addr);
+    void _fastlock_save(bool tx, size_t profile, ad9361_fastlock_profile* val);
+    void _fastlock_load(bool tx, size_t profile, ad9361_fastlock_profile& val);
+    void _fastlock_store(const bool tx, const size_t profile);
+    void _fastlock_recall(const bool tx, const size_t profile);
 
 private:    //Members
     struct chip_regs_t
